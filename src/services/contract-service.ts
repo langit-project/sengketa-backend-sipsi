@@ -1,287 +1,208 @@
 import {
   admin,
-  pantera,
   majelis,
-  sengketAbi,
+  pantera,
   publicClient,
+  sengketAbi,
   sengketaContractAddress,
 } from "../config/contract-config";
 import {
   ContractResponse,
-  toContractResponse,
-  MenerimaSengketa,
-  ValidasiSengketa,
-  PembuatanSidangAwal,
-  TambahSidang,
-  TambahPutusan,
-  ResponseTambahPutusan,
-  RequestBatalCabut,
+  GetContractResponse,
   InputIdSengketa,
   InputIdSengketaJadwal,
-  GetContractResponse,
+  MenerimaSengketa,
+  PembuatanSidangAwal,
+  RequestBatalCabut,
+  ResponseBatalCabut,
+  ResponseTambahPutusan,
+  StructCid,
+  StructJdih,
   StructSengketa,
-  toGetContractResponse,
   StructSidang,
   StructSKPD,
-  StructJdih,
-  StructCid,
-  ResponseBatalCabut,
+  TambahPutusan,
+  TambahSidang,
+  toContractResponse,
+  toGetContractResponse,
+  ValidasiSengketa,
 } from "../models/contract-model";
 import { ContractValidation } from "../validations/contract-validation";
-import { Address } from "viem";
+import { Address, WalletClient } from "viem";
 import { PinataService } from "./pinata-service";
 
+/**
+ * [DISERTASI] Modul Pencatatan Digital Sengketa
+ * Mengintegrasikan pencatatan status perkara on-chain Polygon dan penyimpanan bukti terdesentralisasi IPFS Pinata.
+ */
 export class ContractService {
   private static handleContractError(functionName: string, error: unknown): never {
     console.error(`ContractService.${functionName} failed:`, error instanceof Error ? error.stack || error.message : error);
     throw error;
   }
 
+  /**
+   * Helper generik untuk mengeksekusi penulisan smart contract (DRY).
+   */
+  private static async executeWrite<T>(
+    signer: WalletClient,
+    functionName: string,
+    args: unknown[],
+    responseData: T
+  ): Promise<ContractResponse<T>> {
+    try {
+      console.info(`ContractService.${functionName}: writing contract`, {
+        address: sengketaContractAddress,
+        functionName,
+      });
+
+      const tx = await (signer as any).writeContract({
+        address: sengketaContractAddress as Address,
+        abi: sengketAbi,
+        functionName,
+        args,
+      });
+
+      console.info(`ContractService.${functionName}: tx hash`, tx);
+      return toContractResponse(responseData, tx);
+    } catch (error) {
+      ContractService.handleContractError(functionName, error);
+    }
+  }
+
+  // [DISERTASI] Registrasi penerimaan sengketa on-chain
   static async menerimaSengketa(
     request: MenerimaSengketa
   ): Promise<ContractResponse<MenerimaSengketa> | undefined> {
-    try {
-      // Validasi request menggunakan ContractValidation.CREATE
-      const createRequest = ContractValidation.MENERIMA.parse(request);
-
-      console.info("ContractService.menerimaSengketa: writing contract", {
-        address: sengketaContractAddress,
-        functionName: "menerimaSengketa",
-        args: [createRequest.idSengketa, createRequest.pemohon, createRequest.termohon],
-      });
-      const tx = await admin.writeContract({
-        address: sengketaContractAddress as Address,
-        abi: sengketAbi,
-        functionName: "menerimaSengketa",
-        args: [createRequest.idSengketa, createRequest.pemohon, createRequest.termohon],
-      });
-      console.info("ContractService.menerimaSengketa: tx hash", tx);
-      return toContractResponse(request, tx);
-    } catch (error) {
-      ContractService.handleContractError("menerimaSengketa", error);
-    }
+    const valid = ContractValidation.MENERIMA.parse(request);
+    return this.executeWrite(admin, "menerimaSengketa", [valid.idSengketa, valid.pemohon, valid.termohon], request);
   }
 
+  // [DISERTASI] Validasi sengketa & pencatatan SKPD termohon on-chain
   static async validasiSengketa(
     request: ValidasiSengketa
   ): Promise<ContractResponse<ValidasiSengketa> | undefined> {
-    try {
-      const createRequest = ContractValidation.VALIDASI.parse(request);
-      console.info("ContractService.validasiSengketa: writing contract", {
-        address: sengketaContractAddress,
-        functionName: "validasiSengketa",
-        args: [createRequest.idSengketa, createRequest.jumlah, createRequest.skpd],
-      });
-      const tx = await admin.writeContract({
-        address: sengketaContractAddress as Address,
-        abi: sengketAbi,
-        functionName: "validasiSengketa",
-        args: [createRequest.idSengketa, createRequest.jumlah, createRequest.skpd],
-      });
-      console.info("ContractService.validasiSengketa: tx hash", tx);
-      return toContractResponse(request, tx);
-    } catch (error) {
-      ContractService.handleContractError("validasiSengketa", error);
-    }
+    const valid = ContractValidation.VALIDASI.parse(request);
+    return this.executeWrite(admin, "validasiSengketa", [valid.idSengketa, valid.jumlah, valid.skpd], request);
   }
 
+  // [DISERTASI] Penjadwalan sidang pemeriksaan awal
   static async pembuatanJadwalSidangAwal(
     request: PembuatanSidangAwal
   ): Promise<ContractResponse<PembuatanSidangAwal> | undefined> {
-    try {
-      const createRequest = ContractValidation.SIDANG_AWAL.parse(request);
-      const tx = await pantera.writeContract({
-        address: sengketaContractAddress as Address,
-        abi: sengketAbi,
-        functionName: "pembuatanSidangPemeriksaanAwal",
-        args: [
-          createRequest.idSengketa,
-          createRequest.idJadwal,
-          createRequest.agenda,
-          createRequest.tanggal,
-          createRequest.alamat,
-        ],
-      });
-      return toContractResponse(request, tx);
-    } catch (error) {
-      ContractService.handleContractError("pembuatanSidangPemeriksaanAwal", error);
-    }
+    const valid = ContractValidation.SIDANG_AWAL.parse(request);
+    return this.executeWrite(
+      pantera,
+      "pembuatanSidangPemeriksaanAwal",
+      [valid.idSengketa, valid.idJadwal, valid.agenda, valid.tanggal, valid.alamat],
+      request
+    );
   }
 
+  // [DISERTASI] Pembaruan agenda/jadwal sidang lanjutan
   static async tambahSidang(
     request: TambahSidang
   ): Promise<ContractResponse<TambahSidang> | undefined> {
-    try {
-      const createRequest = ContractValidation.TAMBAH_SIDANG.parse(request);
-      const tx = await pantera.writeContract({
-        address: sengketaContractAddress as Address,
-        abi: sengketAbi,
-        functionName: "updateSidang",
-        args: [
-          createRequest.idSengketa,
-          createRequest.idJadwal,
-          createRequest.jenis,
-          createRequest.agenda,
-          createRequest.tanggal,
-          createRequest.alamat,
-        ],
-      });
-      return toContractResponse(request, tx);
-    } catch (error) {
-      ContractService.handleContractError("updateSidang", error);
-    }
+    const valid = ContractValidation.TAMBAH_SIDANG.parse(request);
+    return this.executeWrite(
+      pantera,
+      "updateSidang",
+      [valid.idSengketa, valid.idJadwal, valid.jenis, valid.agenda, valid.tanggal, valid.alamat],
+      request
+    );
   }
 
   static async getCID(file: Express.Multer.File | undefined): Promise<string> {
     return PinataService.uploadFile(file);
   }
 
+  // [DISERTASI] Pencatatan putusan sengketa & CID IPFS bukti dokumen
   static async tambahPutusan(
     request: TambahPutusan
   ): Promise<ContractResponse<ResponseTambahPutusan> | undefined> {
-    try {
-      // Validate the parsed request
-      const createRequest = ContractValidation.TAMBAH_PUTUSAN.parse(request);
-      const cid: string = await this.getCID(request.cid);
-
-      // Create the transaction
-      const tx = await majelis.writeContract({
-        address: sengketaContractAddress as Address,
-        abi: sengketAbi,
-        functionName: "tambahPutusan",
-        args: [
-          createRequest.idSengketa,
-          createRequest.idJadwal,
-          createRequest.statusPutusan,
-          cid,
-          createRequest.jdih || "",
-        ],
-      });
-
-      const enhancedRequest: ResponseTambahPutusan = {
-        idSengketa: createRequest.idSengketa.toString(),
-        idJadwal: createRequest.idJadwal.toString(),
-        statusPutusan: createRequest.statusPutusan.toString(),
-        cid: cid,
-        jdih: createRequest.jdih,
-      };
-
-      return toContractResponse(enhancedRequest, tx);
-    } catch (error) {
-      console.error("Error in tambahPutusan:", error);
-      throw new Error("Failed to execute tambahPutusan");
-    }
+    const valid = ContractValidation.TAMBAH_PUTUSAN.parse(request);
+    const cid: string = await this.getCID(request.cid);
+    const enhancedRequest: ResponseTambahPutusan = {
+      idSengketa: valid.idSengketa.toString(),
+      idJadwal: valid.idJadwal.toString(),
+      statusPutusan: valid.statusPutusan.toString(),
+      cid,
+      jdih: valid.jdih,
+    };
+    return this.executeWrite(
+      majelis,
+      "tambahPutusan",
+      [valid.idSengketa, valid.idJadwal, valid.statusPutusan, cid, valid.jdih || ""],
+      enhancedRequest
+    );
   }
 
+  // [DISERTASI] Finalisasi putusan selesai & hash CID IPFS
   static async putusanSelesai(
     request: TambahPutusan
   ): Promise<ContractResponse<ResponseTambahPutusan> | undefined> {
-    try {
-      // Validate the parsed request
-      const createRequest = ContractValidation.TAMBAH_PUTUSAN.parse(request);
-      const cid: string = await this.getCID(request.cid);
-
-      // Create the transaction
-      const tx = await majelis.writeContract({
-        address: sengketaContractAddress as Address,
-        abi: sengketAbi,
-        functionName: "putusanSelesai",
-        args: [
-          createRequest.idSengketa,
-          createRequest.idJadwal,
-          createRequest.statusPutusan,
-          cid,
-          createRequest.jdih || "",
-        ],
-      });
-      // Construct enhanced request
-      const enhancedRequest: ResponseTambahPutusan = {
-        idSengketa: createRequest.idSengketa.toString(),
-        idJadwal: createRequest.idJadwal.toString(),
-        statusPutusan: createRequest.statusPutusan.toString(),
-        cid: cid,
-        jdih: createRequest.jdih,
-      };
-
-      return toContractResponse(enhancedRequest, tx);
-    } catch (error) {
-      console.error("Error in putusanSelesai:", error);
-      throw new Error("Failed to execute putusanSelesai");
-    }
+    const valid = ContractValidation.TAMBAH_PUTUSAN.parse(request);
+    const cid: string = await this.getCID(request.cid);
+    const enhancedRequest: ResponseTambahPutusan = {
+      idSengketa: valid.idSengketa.toString(),
+      idJadwal: valid.idJadwal.toString(),
+      statusPutusan: valid.statusPutusan.toString(),
+      cid,
+      jdih: valid.jdih,
+    };
+    return this.executeWrite(
+      majelis,
+      "putusanSelesai",
+      [valid.idSengketa, valid.idJadwal, valid.statusPutusan, cid, valid.jdih || ""],
+      enhancedRequest
+    );
   }
 
+  // [DISERTASI] Pembatalan sengketa & pencatatan alasan via CID IPFS
   static async batalSengketa(
     request: RequestBatalCabut
   ): Promise<ContractResponse<ResponseBatalCabut> | undefined> {
-    try {
-      const createRequest = ContractValidation.BATAL_CABUT.parse(request);
-      const cidMetadata: string = await this.getCID(createRequest.cid);
-
-      const tx = await admin.writeContract({
-        address: sengketaContractAddress as Address,
-        abi: sengketAbi,
-        functionName: "batalSengketa",
-        args: [createRequest.idSengketa, cidMetadata],
-      });
-      const res: ResponseBatalCabut = {
-        idSengketa: createRequest.idSengketa.toString(),
-        cid: cidMetadata,
-      };
-
-      return toContractResponse(res, tx);
-    } catch (error) {
-      ContractService.handleContractError("batalSengketa", error);
-    }
+    const valid = ContractValidation.BATAL_CABUT.parse(request);
+    const cidMetadata: string = await this.getCID(valid.cid);
+    const res: ResponseBatalCabut = {
+      idSengketa: valid.idSengketa.toString(),
+      cid: cidMetadata,
+    };
+    return this.executeWrite(admin, "batalSengketa", [valid.idSengketa, cidMetadata], res);
   }
 
+  // [DISERTASI] Pencabutan sengketa oleh pemohon & pencatatan CID IPFS
   static async cabutSengketa(
     request: RequestBatalCabut
   ): Promise<ContractResponse<ResponseBatalCabut> | undefined> {
-    try {
-      const createRequest = ContractValidation.BATAL_CABUT.parse(request);
-      const cidMetadata: string = await this.getCID(request.cid);
-
-      const tx = await admin.writeContract({
-        address: sengketaContractAddress as Address,
-        abi: sengketAbi,
-        functionName: "cabutSengketa",
-        args: [createRequest.idSengketa, cidMetadata],
-      });
-      const res: ResponseBatalCabut = {
-        idSengketa: createRequest.idSengketa.toString(),
-        cid: cidMetadata,
-      };
-
-      return toContractResponse(res, tx);
-    } catch (error) {
-      ContractService.handleContractError("cabutSengketa", error);
-    }
+    const valid = ContractValidation.BATAL_CABUT.parse(request);
+    const cidMetadata: string = await this.getCID(request.cid);
+    const res: ResponseBatalCabut = {
+      idSengketa: valid.idSengketa.toString(),
+      cid: cidMetadata,
+    };
+    return this.executeWrite(admin, "cabutSengketa", [valid.idSengketa, cidMetadata], res);
   }
 
   static async getPemohonTermohon(
     request: InputIdSengketa
   ): Promise<GetContractResponse<StructSengketa>> {
     try {
-      // Validate and parse the request
-      const createRequest = ContractValidation.ID_SENGKETA.parse(request);
-      // Read contract data
+      const valid = ContractValidation.ID_SENGKETA.parse(request);
       const response = (await publicClient.readContract({
         address: sengketaContractAddress as Address,
         abi: sengketAbi,
         functionName: "getPemohonTermohon",
-        args: [createRequest.idSengketa],
+        args: [valid.idSengketa],
       })) as StructSengketa;
-      // Create response object
+
       const res: StructSengketa = {
         pemohon: response.pemohon,
         termohon: response.termohon,
       };
-
-      // Return the combined response
       return toGetContractResponse(request, res);
     } catch (error) {
-      console.error(error);
-      throw new Error("Failed to get Pemohon and Termohon");
+      ContractService.handleContractError("getPemohonTermohon", error);
     }
   }
 
@@ -289,12 +210,12 @@ export class ContractService {
     request: InputIdSengketaJadwal
   ): Promise<GetContractResponse<StructSidang>> {
     try {
-      const createRequest = ContractValidation.ID_SENGKETA_JADWAL.parse(request);
+      const valid = ContractValidation.ID_SENGKETA_JADWAL.parse(request);
       const response = (await publicClient.readContract({
         address: sengketaContractAddress as Address,
         abi: sengketAbi,
         functionName: "getSidang",
-        args: [createRequest.idSengketa, createRequest.idJadwal],
+        args: [valid.idSengketa, valid.idJadwal],
       })) as StructSidang;
 
       const res: StructSidang = {
@@ -303,83 +224,72 @@ export class ContractService {
         tanggal: response.tanggal.toString(),
         alamat: response.alamat,
       };
-
       return toGetContractResponse(request, res);
     } catch (error) {
-      console.error(error);
-      throw new Error("Failed to get Sidang");
+      ContractService.handleContractError("getSidang", error);
     }
   }
 
   static async getDokumen(request: InputIdSengketaJadwal): Promise<StructCid> {
     try {
-      const createRequest = ContractValidation.ID_SENGKETA_JADWAL.parse(request);
+      const valid = ContractValidation.ID_SENGKETA_JADWAL.parse(request);
       const response = (await publicClient.readContract({
         address: sengketaContractAddress as Address,
         abi: sengketAbi,
         functionName: "getDokumen",
-        args: [createRequest.idSengketa, createRequest.idJadwal],
+        args: [valid.idSengketa, valid.idJadwal],
       })) as string;
 
-      let metadata: StructCid;
-      if (response) {
-        metadata = await PinataService.getMetadata(response);
-        console.log("metadata: ", metadata);
-        if (!metadata || !metadata.attributes.fileHash) {
-          throw new Error("Metadata not found or invalid");
-        }
-      } else {
+      if (!response) {
         throw new Error("Dokumen not found");
+      }
+      const metadata = await PinataService.getMetadata(response);
+      if (!metadata || !metadata.attributes?.fileHash) {
+        throw new Error("Metadata not found or invalid");
       }
       return metadata;
     } catch (error) {
-      console.error(error);
-      throw new Error(`Failed to get Dokumen: ${error}`);
+      ContractService.handleContractError("getDokumen", error);
     }
   }
 
   static async getDokumenBatalCabut(request: InputIdSengketa): Promise<StructCid> {
     try {
-      const createRequest = ContractValidation.ID_SENGKETA.parse(request);
+      const valid = ContractValidation.ID_SENGKETA.parse(request);
       const response = (await publicClient.readContract({
         address: sengketaContractAddress as Address,
         abi: sengketAbi,
         functionName: "getDokumenBatalCabut",
-        args: [createRequest.idSengketa],
+        args: [valid.idSengketa],
       })) as string;
 
-      let metadata: StructCid;
-      if (response) {
-        metadata = await PinataService.getMetadata(response);
-        console.log("metadata: ", metadata);
-        if (!metadata || !metadata.attributes.fileHash) {
-          throw new Error("Metadata not found or invalid");
-        }
-      } else {
+      if (!response) {
         throw new Error("Dokumen not found");
+      }
+      const metadata = await PinataService.getMetadata(response);
+      if (!metadata || !metadata.attributes?.fileHash) {
+        throw new Error("Metadata not found or invalid");
       }
       return metadata;
     } catch (error) {
-      console.error(error);
-      throw new Error(`Failed to get Dokumen: ${error}`);
+      ContractService.handleContractError("getDokumenBatalCabut", error);
     }
   }
+
   static async getJDIH(request: InputIdSengketaJadwal): Promise<GetContractResponse<StructJdih>> {
     try {
-      const createRequest = ContractValidation.ID_SENGKETA_JADWAL.parse(request);
+      const valid = ContractValidation.ID_SENGKETA_JADWAL.parse(request);
       const response = (await publicClient.readContract({
         address: sengketaContractAddress as Address,
         abi: sengketAbi,
         functionName: "getJDIH",
-        args: [createRequest.idSengketa, createRequest.idJadwal],
+        args: [valid.idSengketa, valid.idJadwal],
       })) as unknown;
 
-      // Convert array-like object to string if necessary
       let jdihUrl = "";
       if (typeof response === "string") {
         jdihUrl = response;
       } else if (response && typeof response === "object") {
-        // Handle array-like object by joining all character values
         const chars = Object.entries(response)
           .filter(([key]) => !isNaN(Number(key)))
           .sort((a, b) => Number(a[0]) - Number(b[0]))
@@ -388,26 +298,20 @@ export class ContractService {
         jdihUrl = chars;
       }
 
-      const structJdih: StructJdih = {
-        jdih: jdihUrl,
-      };
-
-      console.log("response JDIH: ", jdihUrl);
-      return toGetContractResponse(request, structJdih);
+      return toGetContractResponse(request, { jdih: jdihUrl });
     } catch (error) {
-      console.error(error);
-      throw new Error("Failed to get JDIH");
+      ContractService.handleContractError("getJDIH", error);
     }
   }
 
   static async getSKPD(request: InputIdSengketa): Promise<GetContractResponse<StructSKPD>> {
     try {
-      const createRequest = ContractValidation.ID_SENGKETA.parse(request);
+      const valid = ContractValidation.ID_SENGKETA.parse(request);
       const response = (await publicClient.readContract({
         address: sengketaContractAddress as Address,
         abi: sengketAbi,
         functionName: "getSKPD",
-        args: [createRequest.idSengketa],
+        args: [valid.idSengketa],
       })) as StructSKPD;
 
       const res: StructSKPD = {
@@ -416,8 +320,7 @@ export class ContractService {
       };
       return toGetContractResponse(request, res);
     } catch (error) {
-      console.error(error);
-      throw new Error("Failed to get SKPD");
+      ContractService.handleContractError("getSKPD", error);
     }
   }
 }

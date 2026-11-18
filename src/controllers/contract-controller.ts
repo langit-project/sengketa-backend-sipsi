@@ -13,625 +13,111 @@ import {
   StructCid,
 } from "../models/contract-model";
 
+/**
+ * Helper wrapper untuk eksekusi controller handler secara seragam (DRY).
+ */
+const handle = (fn: (req: Request) => Promise<unknown>) => {
+  return async (req: Request, res: Response, next: NextFunction) => {
+    try {
+      const data = await fn(req);
+      if (data === undefined) {
+        throw new Error("Service returned undefined");
+      }
+      res.status(200).json({ data });
+    } catch (error) {
+      next(error);
+    }
+  };
+};
+
 export class ContractController {
   /**
-   * @swagger
-   * /contracts/menerima-sengketa:
-   *   post:
-   *     summary: Menerima Sengketa
-   *     tags: [Contracts]
-   *     requestBody:
-   *       required: true
-   *       content:
-   *         application/json:
-   *           schema:
-   *             $ref: '#/components/schemas/MenerimaSengketa'
-   *     responses:
-   *       200:
-   *         description: Successful response
-   *         content:
-   *           application/json:
-   *             schema:
-   *               $ref: '#/components/schemas/ContractResponse'
-   *       400:
-   *         description: Bad request
+   * Health Check endpoint - siap ditampilkan saat presentasi & monitoring
    */
-  static async menerimaSengketa(req: Request, res: Response, next: NextFunction) {
-    try {
-      const request: MenerimaSengketa = req.body as MenerimaSengketa;
-      const response = await ContractService.menerimaSengketa(request);
-      if (!response) {
-        throw new Error("ContractService.menerimaSengketa returned undefined");
-      }
-      res.status(200).json({
-        data: response,
-      });
-    } catch (error) {
-      next(error);
-    }
+  static async healthCheck(req: Request, res: Response) {
+    res.status(200).json({
+      service: "sengketa-backend",
+      status: "healthy",
+      uptime: process.uptime(),
+      timestamp: new Date().toISOString(),
+      network: "Polygon Mainnet",
+      ipfs: "Pinata Gateway Connected",
+    });
   }
 
-  /**
-   * @swagger
-   * /contracts/validasi-sengketa:
-   *   post:
-   *     summary: Validasi Sengketa
-   *     tags: [Contracts]
-   *     requestBody:
-   *       required: true
-   *       content:
-   *         application/json:
-   *           schema:
-   *             $ref: '#/components/schemas/ValidasiSengketa'
-   *     responses:
-   *       200:
-   *         description: Successful response
-   *         content:
-   *           application/json:
-   *             schema:
-   *               $ref: '#/components/schemas/ContractResponse'
-   *       400:
-   *         description: Bad request
-   */
-  static async validasiSengketa(req: Request, res: Response, next: NextFunction) {
-    try {
-      const request: ValidasiSengketa = req.body as ValidasiSengketa;
-      const response = await ContractService.validasiSengketa(request);
-      if (!response) {
-        throw new Error("ContractService.validasiSengketa returned undefined");
-      }
-      res.status(200).json({
-        data: response,
-      });
-    } catch (error) {
-      next(error);
-    }
-  }
+  // --- Transactions (Write Operations) ---
+  static menerimaSengketa = handle(async (req) => {
+    return ContractService.menerimaSengketa(req.body as MenerimaSengketa);
+  });
 
-  /**
-   * @swagger
-   * /contracts/pembuatan-jadwal-sidang-awal:
-   *   post:
-   *     summary: Pembuatan Jadwal Sidang Awal
-   *     tags: [Contracts]
-   *     requestBody:
-   *       required: true
-   *       content:
-   *         application/json:
-   *           schema:
-   *             $ref: '#/components/schemas/PembuatanSidangAwal'
-   *     responses:
-   *       200:
-   *         description: Successful response
-   *         content:
-   *           application/json:
-   *             schema:
-   *               $ref: '#/components/schemas/ContractResponse'
-   *       400:
-   *         description: Bad request
-   */
-  static async pembuatanJadwalSidangAwal(req: Request, res: Response, next: NextFunction) {
-    try {
-      const request: PembuatanSidangAwal = req.body as PembuatanSidangAwal;
-      const response = await ContractService.pembuatanJadwalSidangAwal(request);
-      if (!response) {
-        throw new Error("ContractService.pembuatanJadwalSidangAwal returned undefined");
-      }
-      res.status(200).json({
-        data: response,
-      });
-    } catch (error) {
-      next(error);
-    }
-  }
+  static validasiSengketa = handle(async (req) => {
+    return ContractService.validasiSengketa(req.body as ValidasiSengketa);
+  });
 
-  /**
-   * @swagger
-   * /contracts/tambah-sidang:
-   *   post:
-   *     summary: Tambah Sidang
-   *     tags: [Contracts]
-   *     requestBody:
-   *       required: true
-   *       content:
-   *         application/json:
-   *           schema:
-   *             $ref: '#/components/schemas/TambahSidang'
-   *     responses:
-   *       200:
-   *         description: Successful response
-   *         content:
-   *           application/json:
-   *             schema:
-   *               $ref: '#/components/schemas/ContractResponse'
-   *       400:
-   *         description: Bad request
-   */
-  static async tambahSidang(req: Request, res: Response, next: NextFunction) {
-    try {
-      const request: TambahSidang = req.body as TambahSidang;
-      const response = await ContractService.tambahSidang(request);
-      if (!response) {
-        throw new Error("ContractService.tambahSidang returned undefined");
-      }
-      res.status(200).json({
-        data: response,
-      });
-    } catch (error) {
-      next(error);
-    }
-  }
+  static pembuatanJadwalSidangAwal = handle(async (req) => {
+    return ContractService.pembuatanJadwalSidangAwal(req.body as PembuatanSidangAwal);
+  });
 
-  /**
-   * @swagger
-   * /contracts/tambah-putusan:
-   *   post:
-   *     summary: Tambah Putusan
-   *     tags: [Contracts]
-   *     requestBody:
-   *       required: true
-   *       content:
-   *         multipart/form-data:
-   *           schema:
-   *             type: object
-   *             properties:
-   *               idSengketa:
-   *                 type: string
-   *               idJadwal:
-   *                 type: string
-   *               statusPutusan:
-   *                 type: string
-   *               cid:
-   *                 type: string
-   *                 format: binary
-   *                 description: PDF file (optional)
-   *               jdih:
-   *                 type: string
-   *     responses:
-   *       200:
-   *         description: Successful response
-   *         content:
-   *           application/json:
-   *             schema:
-   *               $ref: '#/components/schemas/ContractResponse'
-   *       400:
-   *         description: Bad request
-   */
-  static async tambahPutusan(req: Request, res: Response, next: NextFunction) {
-    try {
-      const { idSengketa, idJadwal, statusPutusan, jdih } = req.body;
-      const cid = req.file; // `cid` is the file uploaded
+  static tambahSidang = handle(async (req) => {
+    return ContractService.tambahSidang(req.body as TambahSidang);
+  });
 
-      const request: TambahPutusan = {
-        idSengketa,
-        idJadwal,
-        statusPutusan,
-        cid,
-        jdih,
-      };
-      const response = await ContractService.tambahPutusan(request);
-      if (!response) {
-        throw new Error("ContractService.tambahPutusan returned undefined");
-      }
-      res.status(200).json({
-        data: response,
-      });
-    } catch (error) {
-      next(error);
-    }
-  }
+  static tambahPutusan = handle(async (req) => {
+    return ContractService.tambahPutusan({
+      idSengketa: Number(req.body.idSengketa),
+      idJadwal: Number(req.body.idJadwal),
+      statusPutusan: Number(req.body.statusPutusan),
+      jdih: req.body.jdih,
+      cid: req.file,
+    });
+  });
 
-  /**
-   * @swagger
-   * /contracts/putusan-selesai:
-   *   post:
-   *     summary: Putusan Selesai
-   *     tags: [Contracts]
-   *     requestBody:
-   *       required: true
-   *       content:
-   *         multipart/form-data:
-   *           schema:
-   *             type: object
-   *             properties:
-   *               idSengketa:
-   *                 type: string
-   *               idJadwal:
-   *                 type: string
-   *               statusPutusan:
-   *                 type: string
-   *               cid:
-   *                 type: string
-   *                 format: binary
-   *                 description: PDF file (optional)
-   *               jdih:
-   *                 type: string
-   *     responses:
-   *       200:
-   *         description: Successful response
-   *         content:
-   *           application/json:
-   *             schema:
-   *               $ref: '#/components/schemas/ContractResponse'
-   *       400:
-   *         description: Bad request
-   */
-  static async putusanSelesai(req: Request, res: Response, next: NextFunction) {
-    try {
-      const { idSengketa, idJadwal, statusPutusan, jdih } = req.body;
-      const cid = req.file; // `cid` is the file uploaded
+  static putusanSelesai = handle(async (req) => {
+    return ContractService.putusanSelesai({
+      idSengketa: Number(req.body.idSengketa),
+      idJadwal: Number(req.body.idJadwal),
+      statusPutusan: Number(req.body.statusPutusan),
+      jdih: req.body.jdih,
+      cid: req.file,
+    });
+  });
 
-      const request: TambahPutusan = {
-        idSengketa,
-        idJadwal,
-        statusPutusan,
-        cid,
-        jdih,
-      };
-      const response = await ContractService.putusanSelesai(request);
-      if (!response) {
-        throw new Error("ContractService.putusanSelesai returned undefined");
-      }
-      res.status(200).json({
-        data: response,
-      });
-    } catch (error) {
-      next(error);
-    }
-  }
-  // TODO: add batal cabut dan pisahkan kedua endpoint
-  /**
-   * @swagger
-   * /contracts/konfirmasi-batal-sengketa:
-   *   post:
-   *     summary: Membatalkan Sengketa
-   *     tags: [Contracts]
-   *     requestBody:
-   *       required: true
-   *       content:
-   *         multipart/form-data:
-   *           schema:
-   *             type: object
-   *             properties:
-   *               idSengketa:
-   *                 type: string
-   *               cid:
-   *                 type: string
-   *                 format: binary
-   *                 description: PDF file (optional)
-   *     responses:
-   *       200:
-   *         description: Successful response
-   *         content:
-   *           application/json:
-   *             schema:
-   *               $ref: '#/components/schemas/ContractResponse'
-   *       400:
-   *         description: Bad request
-   */
-  static async batalSengketa(req: Request, res: Response, next: NextFunction) {
-    try {
-      const request: RequestBatalCabut = {
-        idSengketa: req.body.idSengketa,
-        cid: req.file,
-      };
-      const response = await ContractService.batalSengketa(request);
-      if (!response) {
-        throw new Error("ContractService.batalSengketa returned undefined");
-      }
-      res.status(200).json({
-        data: response,
-      });
-    } catch (error) {
-      next(error);
-    }
-  }
+  static batalSengketa = handle(async (req) => {
+    return ContractService.batalSengketa({
+      idSengketa: Number(req.body.idSengketa),
+      cid: req.file,
+    });
+  });
 
-  /**
-   * @swagger
-   * /contracts/konfirmasi-cabut-sengketa:
-   *   post:
-   *     summary: Membatal atau mencabut Sengketa
-   *     tags: [Contracts]
-   *     requestBody:
-   *       required: true
-   *       content:
-   *         multipart/form-data:
-   *           schema:
-   *             type: object
-   *             properties:
-   *               idSengketa:
-   *                 type: string
-   *               cid:
-   *                 type: string
-   *                 format: binary
-   *                 description: PDF file (optional)
-   *     responses:
-   *       200:
-   *         description: Successful response
-   *         content:
-   *           application/json:
-   *             schema:
-   *               $ref: '#/components/schemas/ContractResponse'
-   *       400:
-   *         description: Bad request
-   */
-  static async cabutSengketa(req: Request, res: Response, next: NextFunction) {
-    try {
-      const request: RequestBatalCabut = {
-        idSengketa: req.body.idSengketa,
-        cid: req.file,
-      };
-      const response = await ContractService.cabutSengketa(request);
-      if (!response) {
-        throw new Error("ContractService.cabutSengketa returned undefined");
-      }
-      res.status(200).json({
-        data: response,
-      });
-    } catch (error) {
-      next(error);
-    }
-  }
+  static cabutSengketa = handle(async (req) => {
+    return ContractService.cabutSengketa({
+      idSengketa: Number(req.body.idSengketa),
+      cid: req.file,
+    });
+  });
 
-  /**
-   * @swagger
-   * components:
-   *   schemas:
-   *     InputIdSengketa:
-   *       type: object
-   *       properties:
-   *         idSengketa:
-   *           type: string
-   *     InputIdSengketaJadwal:
-   *       type: object
-   *       properties:
-   *         idSengketa:
-   *           type: string
-   *         idJadwal:
-   *           type: string
-   *     StructSengketa:
-   *       type: object
-   *       properties:
-   *         pemohon:
-   *           type: string
-   *         termohon:
-   *           type: string
-   *     StructSidang:
-   *       type: object
-   *       properties:
-   *         jenis:
-   *           type: string
-   *         agenda:
-   *           type: string
-   *         tanggal:
-   *           type: string
-   *         alamat:
-   *           type: string
-   *     StructSKPD:
-   *       type: object
-   *       properties:
-   *         jumlah:
-   *           type: string
-   *         skpd:
-   *           type: array
-   *           items:
-   *             type: string
-   */
+  // --- View Calls (Read Operations) ---
+  static getPemohonTermohon = handle(async (req) => {
+    return ContractService.getPemohonTermohon(req.body as InputIdSengketa);
+  });
 
-  /**
-   * @swagger
-   * /contracts/get-pemohon-Termohon:
-   *   post:
-   *     summary: Get Pemohon and Termohon
-   *     tags: [Get Data]
-   *     requestBody:
-   *       required: true
-   *       content:
-   *         application/json:
-   *           schema:
-   *             $ref: '#/components/schemas/InputIdSengketa'
-   *     responses:
-   *       200:
-   *         description: Successful response
-   *         content:
-   *           application/json:
-   *             schema:
-   *               $ref: '#/components/schemas/StructSengketa'
-   *       500:
-   *         description: Server error
-   */
-  static async getPemohonTermohon(req: Request, res: Response, next: NextFunction) {
-    try {
-      const request: InputIdSengketa = req.body as InputIdSengketa;
-      const result = await ContractService.getPemohonTermohon(request);
-      res.status(200).json(result);
-    } catch (error) {
-      next(error);
-    }
-  }
+  static getSidang = handle(async (req) => {
+    return ContractService.getSidang(req.body as InputIdSengketaJadwal);
+  });
 
-  /**
-   * @swagger
-   * /contracts/get-sidang:
-   *   post:
-   *     summary: Get Sidang details
-   *     tags: [Get Data]
-   *     requestBody:
-   *       required: true
-   *       content:
-   *         application/json:
-   *           schema:
-   *             $ref: '#/components/schemas/InputIdSengketaJadwal'
-   *     responses:
-   *       200:
-   *         description: Successful response
-   *         content:
-   *           application/json:
-   *             schema:
-   *               $ref: '#/components/schemas/StructSidang'
-   *       500:
-   *         description: Server error
-   */
-  static async getSidang(req: Request, res: Response, next: NextFunction) {
-    try {
-      const request: InputIdSengketaJadwal = req.body as InputIdSengketaJadwal;
-      const result = await ContractService.getSidang(request);
-      res.status(200).json(result);
-    } catch (error) {
-      next(error);
-    }
-  }
+  static getDokumen = handle(async (req) => {
+    return ContractService.getDokumen(req.body as InputIdSengketaJadwal);
+  });
 
-  /**
-   * @swagger
-   * /contracts/get-dokumen:
-   *   post:
-   *     summary: Get Dokumen
-   *     tags: [Get Data]
-   *     requestBody:
-   *       required: true
-   *       content:
-   *         application/json:
-   *           schema:
-   *             $ref: '#/components/schemas/InputIdSengketaJadwal'
-   *     responses:
-   *       200:
-   *         description: Successful response
-   *         content:
-   *           application/json:
-   *             schema:
-   *               type: string
-   *       404:
-   *         description: Not Found
-   *       500:
-   *         description: Server error
-   */
-  static async getDokumen(req: Request, res: Response, next: NextFunction) {
-    try {
-      const request: InputIdSengketaJadwal = req.body as InputIdSengketaJadwal;
-      const result: StructCid = (await ContractService.getDokumen(request)) as StructCid;
-      if (result.attributes.fileHash) {
-        const filename = result.name;
-        res.setHeader("Content-Disposition", `attachment; filename="${filename}"`);
-        res.setHeader("Content-Type", result.attributes.mimetype || "application/octet-stream");
-        // Get the file content from Pinata gateway
-        const fileContent = await PinataService.getFileContent(result.attributes.fileHash);
-        res.end(fileContent);
-      } else {
-        res.status(404).send("File hash not found");
-      }
-    } catch (error) {
-      console.error(error);
-      next(error);
-    }
-  }
+  static getDokumenBatalCabut = handle(async (req) => {
+    return ContractService.getDokumenBatalCabut(req.body as InputIdSengketa);
+  });
 
-  /**
-   * @swagger
-   * /contracts/get-dokumen-batal-cabut:
-   *   post:
-   *     summary: Get Dokumen
-   *     tags: [Get Data]
-   *     requestBody:
-   *       required: true
-   *       content:
-   *         application/json:
-   *           schema:
-   *             $ref: '#/components/schemas/InputIdSengketa'
-   *     responses:
-   *       200:
-   *         description: Successful response
-   *         content:
-   *           application/json:
-   *             schema:
-   *               type: string
-   *       404:
-   *         description: Not Found
-   *       500:
-   *         description: Server error
-   */
-  static async getDokumenBatalCabut(req: Request, res: Response, next: NextFunction) {
-    try {
-      const request: InputIdSengketa = req.body as InputIdSengketa;
-      const result: StructCid = (await ContractService.getDokumenBatalCabut(request)) as StructCid;
+  static getJDIH = handle(async (req) => {
+    return ContractService.getJDIH(req.body as InputIdSengketaJadwal);
+  });
 
-      if (result.attributes.fileHash) {
-        const filename = result.name;
-        res.setHeader("Content-Disposition", `attachment; filename="${filename}"`);
-        res.setHeader("Content-Type", result.attributes.mimetype || "application/octet-stream");
-        // Get the file content from Pinata gateway
-        const fileContent = await PinataService.getFileContent(result.attributes.fileHash);
-        res.end(fileContent);
-      } else {
-        res.status(404).send("File hash not found");
-      }
-    } catch (error) {
-      console.error(error);
-      next(error);
-    }
-  }
-  /**
-   * @swagger
-   * /contracts/get-jdih:
-   *   post:
-   *     summary: Get JDIH
-   *     tags: [Get Data]
-   *     requestBody:
-   *       required: true
-   *       content:
-   *         application/json:
-   *           schema:
-   *             $ref: '#/components/schemas/InputIdSengketaJadwal'
-   *     responses:
-   *       200:
-   *         description: Successful response
-   *         content:
-   *           application/json:
-   *             schema:
-   *               type: string
-   *       500:
-   *         description: Server error
-   */
-  static async getJDIH(req: Request, res: Response, next: NextFunction) {
-    try {
-      const request: InputIdSengketaJadwal = req.body as InputIdSengketaJadwal;
-      const result = await ContractService.getJDIH(request);
-      res.status(200).json(result);
-    } catch (error) {
-      next(error);
-    }
-  }
-
-  /**
-   * @swagger
-   * /contracts/get-skpd:
-   *   post:
-   *     summary: Get SKPD
-   *     tags: [Get Data]
-   *     requestBody:
-   *       required: true
-   *       content:
-   *         application/json:
-   *           schema:
-   *             $ref: '#/components/schemas/InputIdSengketa'
-   *     responses:
-   *       200:
-   *         description: Successful response
-   *         content:
-   *           application/json:
-   *             schema:
-   *               $ref: '#/components/schemas/StructSKPD'
-   *       500:
-   *         description: Server error
-   */
-  static async getSKPD(req: Request, res: Response, next: NextFunction) {
-    try {
-      const request: InputIdSengketa = req.body as InputIdSengketa;
-      const result = await ContractService.getSKPD(request);
-      res.status(200).json(result);
-    } catch (error) {
-      next(error);
-    }
-  }
+  static getSKPD = handle(async (req) => {
+    return ContractService.getSKPD(req.body as InputIdSengketa);
+  });
 }

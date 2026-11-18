@@ -1,6 +1,5 @@
 import { Response, Request, NextFunction } from "express";
 import { ZodError } from "zod";
-// import { ResponseError } from "../error/response-error";
 
 class ResponseError extends Error {
   constructor(public status: number, public message: string) {

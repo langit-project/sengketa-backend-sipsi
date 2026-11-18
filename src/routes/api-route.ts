@@ -5,6 +5,10 @@ import { ContractController } from '../controllers/contract-controller';
 const router = express.Router();
 const upload = multer({ dest: 'uploads/' });
 
+// Health check endpoint
+router.get('/health', ContractController.healthCheck);
+router.get('/', ContractController.healthCheck);
+
 router.post('/menerima-sengketa', ContractController.menerimaSengketa);
 router.post('/validasi-sengketa', ContractController.validasiSengketa);
 router.post('/pembuatan-jadwal-sidang-awal', ContractController.pembuatanJadwalSidangAwal);
