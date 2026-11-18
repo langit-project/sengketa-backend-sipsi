@@ -13,6 +13,9 @@ app.use(express.urlencoded({ extended: true }));
 // Swagger setup
 swaggerDocs(app);
 
+// Root & Health check routes
+app.use('/', apiRoutes);
+
 // API Routes
 app.use('/contracts', apiRoutes);
 
