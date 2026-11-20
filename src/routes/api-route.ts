@@ -5,10 +5,6 @@ import { ContractController } from '../controllers/contract-controller';
 const router = express.Router();
 const upload = multer({ dest: 'uploads/' });
 
-// Health check endpoint
-router.get('/health', ContractController.healthCheck);
-router.get('/', ContractController.healthCheck);
-
 router.post('/menerima-sengketa', ContractController.menerimaSengketa);
 router.post('/validasi-sengketa', ContractController.validasiSengketa);
 router.post('/pembuatan-jadwal-sidang-awal', ContractController.pembuatanJadwalSidangAwal);
@@ -24,5 +20,9 @@ router.post('/get-dokumen', ContractController.getDokumen);
 router.post('/get-dokumen-batal-cabut', ContractController.getDokumenBatalCabut);
 router.post('/get-jdih', ContractController.getJDIH);
 router.post('/get-skpd', ContractController.getSKPD);
+
+// Pinata IPFS live explorer and files API
+router.get('/pinata-files', ContractController.getPinataFiles);
+router.get('/pinata-explorer', ContractController.pinataExplorer);
 
 export default router;

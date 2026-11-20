@@ -105,4 +105,23 @@ export class PinataService {
       throw error;
     }
   }
+
+  static async listPins(pageLimit: number = 100, pageOffset: number = 0): Promise<any> {
+    try {
+      const response = await axios.get("https://api.pinata.cloud/data/pinList", {
+        params: {
+          status: "pinned",
+          pageLimit,
+          pageOffset,
+        },
+        headers: {
+          Authorization: `Bearer ${PINATA_JWT}`,
+        },
+      });
+      return response.data;
+    } catch (error) {
+      console.error("Error fetching pins list from Pinata:", error);
+      throw error;
+    }
+  }
 }
