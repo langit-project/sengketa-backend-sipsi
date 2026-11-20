@@ -10,11 +10,17 @@ app.use(cors());
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 
+// Health Check Endpoint
+app.get('/health', (req, res) => {
+  res.status(200).json({
+    status: 'healthy',
+    service: 'sengketa-backend',
+    timestamp: new Date().toISOString()
+  });
+});
+
 // Swagger setup
 swaggerDocs(app);
-
-// Root & Health check routes
-app.use('/', apiRoutes);
 
 // API Routes
 app.use('/contracts', apiRoutes);
