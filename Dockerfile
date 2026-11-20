@@ -19,6 +19,9 @@ RUN npm run build
 # Production stage
 FROM node:20-slim AS production
 
+# Install curl for Coolify container healthcheck
+RUN apt-get update && apt-get install -y curl && rm -rf /var/lib/apt/lists/*
+
 # Set NODE_ENV
 ENV NODE_ENV=production
 
@@ -48,6 +51,9 @@ CMD ["npm", "start"]
 
 # Development stage (use as alternative target)
 FROM node:20-slim AS development
+
+# Install curl for Coolify container healthcheck
+RUN apt-get update && apt-get install -y curl && rm -rf /var/lib/apt/lists/*
 
 # Set NODE_ENV
 ENV NODE_ENV=development
